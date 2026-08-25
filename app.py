@@ -123,7 +123,7 @@ with st.sidebar:
         )
 
 # ---------------------------------------------------------
-# 5.Ingestion Pipeline
+# 5. Gemini Ingestion Pipeline
 # ---------------------------------------------------------
 if generate_btn and uploaded_file:
     with st.spinner("Intelligently mapping Phase and Sprint structures..."):
@@ -306,6 +306,7 @@ if "tasks_df" in st.session_state:
     for _, row in chart_df.iterrows():
         s_date = pd.to_datetime(row["Start Date"])
         dur = float(row["Duration (Weeks)"])
+        # Force the bar to visually span the full week lines regardless of weekend gaps
         v_end = s_date + timedelta(days=dur * 7)
         visual_end_dates.append(v_end)
         real_end_dates.append(pd.to_datetime(row["End Date"]).strftime("%Y-%m-%d"))
@@ -426,14 +427,19 @@ if "tasks_df" in st.session_state:
         st.session_state["sprint_df"] = pd.concat(updated_dfs, ignore_index=True)
 
    # ---------------------------------------------------------
-    # 9. Export Options
+    # 9. Export Options (CSV, Excel, PowerPoint)
     # ---------------------------------------------------------
     import io
+    import math
+    from pptx import Presentation
+    from pptx.util import Inches, Pt
+    from pptx.dml.color import RGBColor
+    from pptx.enum.shapes import MSO_SHAPE
     
     st.divider()
     st.subheader("Export Center")
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.download_button("Download Phase Schedule (CSV)", data=edited_df.to_csv(index=False).encode('utf-8'), file_name="phase_schedule.csv", mime="text/csv")
@@ -445,9 +451,9 @@ if "tasks_df" in st.session_state:
 
     with col3:
         if "tasks_df" in st.session_state and not chart_df.empty:
-            output = io.BytesIO()
+            output_xl = io.BytesIO()
             
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            with pd.ExcelWriter(output_xl, engine='xlsxwriter') as writer:
                 workbook = writer.book
                 worksheet = workbook.add_worksheet('Gantt Grid')
                 
@@ -467,7 +473,7 @@ if "tasks_df" in st.session_state:
                 worksheet.set_column(2, 2, 12)
                 worksheet.set_column(3, 3, 12)
                 
-                min_date = min(chart_df["Start Date"].dt.date.min(), safe_start)
+                min_date_xl = min(chart_df["Start Date"].dt.date.min(), safe_start)
 
                 for w in range(num_weeks):
                     worksheet.write(0, 4 + w, f"W{w+1}", header_fmt)
@@ -476,36 +482,98 @@ if "tasks_df" in st.session_state:
                 for row_idx, (_, row) in enumerate(chart_df.iterrows(), start=1):
                     worksheet.write(row_idx, 0, row["Task Name"], task_fmt)
                     worksheet.write(row_idx, 1, row["Phase"], task_fmt)
+                    worksheet.write(row_idx, 2, row["Start Date"].strftime("%Y-%m-%d"), task_fmt)
                     
-                    start_val = row["Start Date"].strftime("%Y-%m-%d")
-                    worksheet.write(row_idx, 2, start_val, task_fmt)
+                    end_val_xl = row["Real End Date"] if "Real End Date" in row else (row["End Date"].strftime("%Y-%m-%d") if pd.notnull(row["End Date"]) else "")
+                    worksheet.write(row_idx, 3, end_val_xl, task_fmt)
                     
-                    # Log the exact business end date calculated by the app
-                    end_val = row["Real End Date"] if "Real End Date" in row else (row["End Date"].strftime("%Y-%m-%d") if pd.notnull(row["End Date"]) else "")
-                    worksheet.write(row_idx, 3, end_val, task_fmt)
-                    
-                    task_start = row["Start Date"].date()
-                    
-                    # Convert duration to an exact number of visual blocks to paint
-                    task_dur_weeks = max(1, int(math.ceil(float(row["Duration (Weeks)"]))))
-                    offset_weeks = max(0, (task_start - min_date).days // 7)
+                    task_start_xl = row["Start Date"].date()
+                    task_dur_weeks_xl = max(1, int(math.ceil(float(row["Duration (Weeks)"]))))
+                    offset_weeks_xl = max(0, (task_start_xl - min_date_xl).days // 7)
                     
                     fill_fmt = workbook.add_format({'bg_color': phase_colors.get(row["Phase"], '#3B82F6'), 'border': 1})
                     empty_fmt = workbook.add_format({'border': 1})
                     
-                    # Paint the timeline blocks
                     for w in range(num_weeks):
-                        if offset_weeks <= w < offset_weeks + task_dur_weeks:
+                        if offset_weeks_xl <= w < offset_weeks_xl + task_dur_weeks_xl:
                             worksheet.write(row_idx, 4 + w, "", fill_fmt)
                         else:
                             worksheet.write(row_idx, 4 + w, "", empty_fmt)
             
-            output.seek(0)
+            output_xl.seek(0)
+            st.download_button("Download Excel Gantt", data=output_xl, file_name="gantt_grid.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    with col4:
+        if "tasks_df" in st.session_state and not chart_df.empty:
+            output_ppt = io.BytesIO()
             
-            st.download_button(
-                label="Download Gantt as Excel Grid", 
-                data=output, 
-                file_name="gantt_grid.xlsx", 
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                type="primary"
-            )
+            prs = Presentation()
+            # Set to standard 16:9 widescreen
+            prs.slide_width = Inches(13.333)
+            prs.slide_height = Inches(7.5)
+            
+            # Use a blank slide layout
+            blank_slide_layout = prs.slide_layouts[6]
+            slide = prs.slides.add_slide(blank_slide_layout)
+            
+            # Canvas Math
+            margin_left = Inches(1.5)
+            margin_top = Inches(1.5)
+            chart_width = Inches(10)
+            week_spacing = chart_width / num_weeks
+            row_height = Inches(0.8)
+            bar_height = Inches(0.25)
+            
+            # Precise RGB conversion for #175959 applied to both bars and lines
+            teal_rgb = RGBColor(23, 89, 89)
+            line_rgb = RGBColor(23, 89, 89)
+            text_rgb = RGBColor(80, 80, 80)
+            
+            min_date_ppt = min(chart_df["Start Date"].dt.date.min(), safe_start)
+            
+            # 1. Draw Vertical Grid Lines & Week Labels
+            for w in range(num_weeks + 1):
+                x_pos = margin_left + (w * week_spacing)
+                
+                # Draw a 1-point wide solid rectangle instead of a line
+                line_height = (len(chart_df) * row_height) + Inches(0.5)
+                grid_line = slide.shapes.add_shape(1, x_pos, margin_top, Pt(1), line_height) # 1 = msoShapeRectangle
+                grid_line.fill.solid()
+                grid_line.fill.fore_color.rgb = line_rgb
+                grid_line.line.fill.background() # Remove border
+                
+                # Week Label Text Box
+                if w < num_weeks:
+                    tb = slide.shapes.add_textbox(x_pos - Inches(0.5), margin_top - Inches(0.5), Inches(1), Inches(0.4))
+                    p = tb.text_frame.paragraphs[0]
+                    p.text = f"WEEK {w+1}"
+                    p.font.size = Pt(10)
+                    p.font.color.rgb = text_rgb
+            
+            # 2. Draw Editable Task Bars & Labels
+            for idx, (_, row) in enumerate(chart_df.iterrows()):
+                task_start_ppt = row["Start Date"].date()
+                task_dur_ppt = float(row["Duration (Weeks)"])
+                
+                offset_weeks_ppt = max(0, (task_start_ppt - min_date_ppt).days / 7)
+                
+                bar_left = margin_left + (offset_weeks_ppt * week_spacing)
+                bar_top = margin_top + (idx * row_height) + Inches(0.2)
+                bar_width = task_dur_ppt * week_spacing
+                shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, bar_left, bar_top, bar_width, bar_height)
+                shape.fill.solid()
+                shape.fill.fore_color.rgb = teal_rgb
+                shape.line.fill.background() # No border
+                
+                # Render the task label strictly below the bar
+                label_tb = slide.shapes.add_textbox(bar_left, bar_top + bar_height, max(bar_width, Inches(2)), Inches(0.4))
+                p = label_tb.text_frame.paragraphs[0]
+                p.text = row["Task Name"]
+                p.font.size = Pt(9)
+                p.font.color.rgb = text_rgb
+                label_tb.text_frame.word_wrap = True
+
+            prs.save(output_ppt)
+            output_ppt.seek(0)
+            
+            st.download_button("Download Editable PPTX", data=output_ppt, file_name="editable_gantt.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation", type="primary")
