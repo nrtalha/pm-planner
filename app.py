@@ -108,7 +108,7 @@ with st.sidebar:
     )
     generate_btn = st.button("Generate Plan", type="primary")
 
-    # --- Quick Navigation Menu  ---
+    # --- Quick Navigation Menu (Only appears after generation) ---
     if "project_data" in st.session_state:
         st.divider()
         st.header("Quick Navigation")
@@ -123,7 +123,7 @@ with st.sidebar:
         )
 
 # ---------------------------------------------------------
-# 5. Ingestion Pipeline
+# 5.Ingestion Pipeline
 # ---------------------------------------------------------
 if generate_btn and uploaded_file:
     with st.spinner("Intelligently mapping Phase and Sprint structures..."):
@@ -276,7 +276,7 @@ if "tasks_df" in st.session_state:
         st.session_state["tasks_df"] = edited_df.sort_values(by="Order").reset_index(drop=True)
         st.rerun()
 
-    # ---------------------------------------------------------
+# ---------------------------------------------------------
     # 7. Timeline Checks & Gantt Chart
     # ---------------------------------------------------------
     agreed_weeks = st.session_state["project_data"].agreed_timeline_weeks
@@ -296,25 +296,33 @@ if "tasks_df" in st.session_state:
     st.caption("Phase Schedule Visualization")
     
     chart_df = edited_df.copy()
-    chart_df = chart_df.dropna(subset=["Start Date", "Duration (Weeks)"])
+    chart_df = chart_df.dropna(subset=["Start Date", "End Date", "Duration (Weeks)"])
     chart_df["Phase"] = chart_df["Phase"].fillna("Uncategorized")
     chart_df["Task Name"] = chart_df["Task Name"].fillna("New Task")
     chart_df = chart_df.sort_values(by="Order", ascending=True)
 
     visual_end_dates = []
+    real_end_dates = []
     for _, row in chart_df.iterrows():
         s_date = pd.to_datetime(row["Start Date"])
-        v_end = s_date + timedelta(days=float(row["Duration (Weeks)"]) * 7)
+        dur = float(row["Duration (Weeks)"])
+        v_end = s_date + timedelta(days=dur * 7)
         visual_end_dates.append(v_end)
+        real_end_dates.append(pd.to_datetime(row["End Date"]).strftime("%Y-%m-%d"))
 
     chart_df["Start Date"] = pd.to_datetime(chart_df["Start Date"])
     chart_df["Visual End Date"] = visual_end_dates
+    chart_df["Real End Date"] = real_end_dates
 
     if not chart_df.empty:
+        dynamic_height = max(300, len(chart_df) * 45 + 150)
+
         fig = px.timeline(
             chart_df,
             x_start="Start Date", x_end="Visual End Date", 
-            y="Task Name", color="Phase", hover_data=["Duration (Weeks)"] 
+            y="Task Name", color="Phase", 
+            # Show the true end date to the user, hide the rendering date
+            hover_data={"Duration (Weeks)": True, "Real End Date": True, "Visual End Date": False} 
         )
         min_date = min(chart_df["Start Date"].min().date(), safe_start)
         max_date = max(chart_df["Visual End Date"].max().date(), deadline_date)
@@ -326,11 +334,22 @@ if "tasks_df" in st.session_state:
         fig.update_layout(
             xaxis=dict(side="top", tickmode="array", tickvals=custom_tickvals, ticktext=custom_ticktext, showgrid=True, gridcolor='rgba(200, 200, 200, 0.4)', gridwidth=1),
             yaxis=dict(showgrid=False, title="Tasks"),
-            height=550, showlegend=True
+            height=dynamic_height, 
+            showlegend=True
         )
         fig.add_vline(x=deadline_date.strftime("%Y-%m-%d"), line_width=3, line_dash="dash", line_color="#e74c3c", annotation_text="Deadline", annotation_position="top right")
         fig.update_yaxes(autorange="reversed", categoryorder="array", categoryarray=chart_df["Task Name"].tolist())
-        st.plotly_chart(fig, use_container_width=True)
+        
+        chart_config = {
+            'displayModeBar': True,
+            'displaylogo': False,
+            'toImageButtonOptions': {
+                'format': 'png', 
+                'filename': 'Project_Phase_Schedule',
+                'scale': 3 
+            }
+        }
+        st.plotly_chart(fig, use_container_width=True, config=chart_config)
 
     # ---------------------------------------------------------
     # 8. Proposed Sprint Distribution (Explicit Add/Delete)
@@ -406,13 +425,87 @@ if "tasks_df" in st.session_state:
                 
         st.session_state["sprint_df"] = pd.concat(updated_dfs, ignore_index=True)
 
-    # ---------------------------------------------------------
+   # ---------------------------------------------------------
     # 9. Export Options
     # ---------------------------------------------------------
-    col1, col2 = st.columns(2)
+    import io
+    
+    st.divider()
+    st.subheader("Export Center")
+    
+    col1, col2, col3 = st.columns(3)
+    
     with col1:
         st.download_button("Download Phase Schedule (CSV)", data=edited_df.to_csv(index=False).encode('utf-8'), file_name="phase_schedule.csv", mime="text/csv")
+        
     with col2:
         if "sprint_df" in st.session_state:
             export_df = st.session_state["sprint_df"].drop(columns=["Sprint"], errors="ignore")
             st.download_button("Download Sprint Board (CSV)", data=export_df.to_csv(index=False).encode('utf-8'), file_name="sprint_distribution.csv", mime="text/csv")
+
+    with col3:
+        if "tasks_df" in st.session_state and not chart_df.empty:
+            output = io.BytesIO()
+            
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                workbook = writer.book
+                worksheet = workbook.add_worksheet('Gantt Grid')
+                
+                header_fmt = workbook.add_format({'bold': True, 'bg_color': '#111827', 'font_color': 'white', 'border': 1, 'align': 'center'})
+                task_fmt = workbook.add_format({'border': 1, 'text_wrap': True})
+                
+                phases = chart_df["Phase"].unique()
+                hex_colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
+                phase_colors = {phase: hex_colors[i % len(hex_colors)] for i, phase in enumerate(phases)}
+                
+                worksheet.write(0, 0, "Task Name", header_fmt)
+                worksheet.write(0, 1, "Phase", header_fmt)
+                worksheet.write(0, 2, "Start", header_fmt)
+                worksheet.write(0, 3, "End", header_fmt)
+                worksheet.set_column(0, 0, 35)
+                worksheet.set_column(1, 1, 20)
+                worksheet.set_column(2, 2, 12)
+                worksheet.set_column(3, 3, 12)
+                
+                min_date = min(chart_df["Start Date"].dt.date.min(), safe_start)
+
+                for w in range(num_weeks):
+                    worksheet.write(0, 4 + w, f"W{w+1}", header_fmt)
+                    worksheet.set_column(4 + w, 4 + w, 4)
+                    
+                for row_idx, (_, row) in enumerate(chart_df.iterrows(), start=1):
+                    worksheet.write(row_idx, 0, row["Task Name"], task_fmt)
+                    worksheet.write(row_idx, 1, row["Phase"], task_fmt)
+                    
+                    start_val = row["Start Date"].strftime("%Y-%m-%d")
+                    worksheet.write(row_idx, 2, start_val, task_fmt)
+                    
+                    # Log the exact business end date calculated by the app
+                    end_val = row["Real End Date"] if "Real End Date" in row else (row["End Date"].strftime("%Y-%m-%d") if pd.notnull(row["End Date"]) else "")
+                    worksheet.write(row_idx, 3, end_val, task_fmt)
+                    
+                    task_start = row["Start Date"].date()
+                    
+                    # Convert duration to an exact number of visual blocks to paint
+                    task_dur_weeks = max(1, int(math.ceil(float(row["Duration (Weeks)"]))))
+                    offset_weeks = max(0, (task_start - min_date).days // 7)
+                    
+                    fill_fmt = workbook.add_format({'bg_color': phase_colors.get(row["Phase"], '#3B82F6'), 'border': 1})
+                    empty_fmt = workbook.add_format({'border': 1})
+                    
+                    # Paint the timeline blocks
+                    for w in range(num_weeks):
+                        if offset_weeks <= w < offset_weeks + task_dur_weeks:
+                            worksheet.write(row_idx, 4 + w, "", fill_fmt)
+                        else:
+                            worksheet.write(row_idx, 4 + w, "", empty_fmt)
+            
+            output.seek(0)
+            
+            st.download_button(
+                label="Download Gantt as Excel Grid", 
+                data=output, 
+                file_name="gantt_grid.xlsx", 
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary"
+            )
