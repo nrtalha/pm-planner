@@ -3,3 +3,5 @@ pandas
 plotly
 pydantic
 google-genai
+xlsxwriter
+python-pptx
