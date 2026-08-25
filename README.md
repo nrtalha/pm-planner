@@ -15,7 +15,7 @@ The SOW & Sprint Architect eliminates the manual overhead of breaking down massi
 * **AI Engine:** Utilizes Google's gemini-3.6-flash model with strict Pydantic JSON schemas to guarantee the output is formatted precisely for data tables.
 * **Smart Date Logic:** Features a custom business-day calculation engine. Tasks automatically skip weekends, and adjustments to a task's duration or start date seamlessly cascade to recalculate its end date.
 * **Interactive UI:** Built entirely in Streamlit. It features multi-level expandable sprint accordions (ClickUp-style), manual sprint creation/deletion, and automated Gantt chart sorting.
-* **Data Portability:** Full support for exporting the Phase Schedule and Sprint Distribution to CSV for integration into Jira, ClickUp, or Asana.
+* **Data Portability:** Full support for exporting data to CSV (for Jira/ClickUp), Excel (as a colored, snapped grid), and PPTX (as native, editable vector shapes).
 
 ---
 
@@ -78,3 +78,4 @@ Streamlit requires your Gemini API key to be stored in a specific hidden folder.
 * **AI/LLM:** Google GenAI SDK (gemini-3.6-flash)
 * **Data Processing:** Pandas, Pydantic
 * **Visualization:** Plotly Express
+* **Document Generation:** XlsxWriter (Excel), python-pptx (PowerPoint)
