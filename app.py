@@ -149,7 +149,11 @@ if generate_btn and uploaded_file:
             """
 
             response = client.models.generate_content(
+<<<<<<< HEAD
                 model="gemini-3.6-flash",
+=======
+                model="gemini-3.8-flash",
+>>>>>>> ec1864d (Pushing new updates)
                 contents=[uploaded_pdf, prompt],
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -560,6 +564,11 @@ if "tasks_df" in st.session_state:
                 bar_left = margin_left + (offset_weeks_ppt * week_spacing)
                 bar_top = margin_top + (idx * row_height) + Inches(0.2)
                 bar_width = task_dur_ppt * week_spacing
+<<<<<<< HEAD
+=======
+                
+                # Render the shape natively using MSO_SHAPE.ROUNDED_RECTANGLE
+>>>>>>> ec1864d (Pushing new updates)
                 shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, bar_left, bar_top, bar_width, bar_height)
                 shape.fill.solid()
                 shape.fill.fore_color.rgb = teal_rgb
@@ -576,4 +585,8 @@ if "tasks_df" in st.session_state:
             prs.save(output_ppt)
             output_ppt.seek(0)
             
+<<<<<<< HEAD
             st.download_button("Download Editable PPTX", data=output_ppt, file_name="editable_gantt.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation", type="primary")
+=======
+            st.download_button("Download Editable PPTX", data=output_ppt, file_name="editable_gantt.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation", type="primary")
+>>>>>>> ec1864d (Pushing new updates)
