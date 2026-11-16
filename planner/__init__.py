@@ -1,0 +1,1 @@
+"""Deterministic planning logic for the SOW & Sprint Architect (no UI, no LLM)."""
