@@ -1,13 +1,14 @@
 """Scheduling rules: phase sequencing, sprint windows, deadline checks."""
 import re
 from datetime import date
-from typing import Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 
 from .dates import (
     add_business_days,
     calculate_business_end_date,
+    calculate_duration_weeks,
     next_business_day,
     roll_to_business_day,
 )
@@ -88,3 +89,60 @@ def deadline_date(base_start: date, agreed_weeks: float) -> date:
 def latest_end_date(df: pd.DataFrame) -> Optional[date]:
     ends = pd.to_datetime(df["End Date"]).dropna()
     return None if ends.empty else ends.max().date()
+
+
+# ---------------------------------------------------------------- row-based API
+# The web app sends phases as a list of dicts with a stable "id":
+#   {"id", "order", "task_name", "phase", "duration_weeks", "start_date", "end_date"}
+# These functions apply the same rules as the Streamlit phase table.
+
+def reconcile_phase_rows(previous: List[Dict[str, Any]],
+                         edited: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Keep start / duration / end consistent after an edit, then sort by order.
+
+    - A row without an order goes to the end (max order + 1).
+    - A new row, or a row without an end date, gets its end calculated.
+    - Changing start or duration recalculates the end.
+    - Changing only the end recalculates the duration.
+    """
+    before = {row["id"]: row for row in previous}
+    rows = [dict(row) for row in edited]
+
+    max_order = max((r["order"] for r in rows if r.get("order") is not None), default=0)
+    for row in rows:
+        if row.get("order") is None:
+            max_order += 1
+            row["order"] = max_order
+
+    for row in rows:
+        start, duration, end = row.get("start_date"), row.get("duration_weeks"), row.get("end_date")
+        if start is None or duration is None:
+            continue
+        calc_end = calculate_business_end_date(start, float(duration))
+        old = before.get(row["id"])
+        if old is None or end is None:
+            row["end_date"] = calc_end
+        elif old.get("start_date") != start or old.get("duration_weeks") != duration:
+            row["end_date"] = calc_end
+        elif old.get("end_date") != end:
+            row["duration_weeks"] = calculate_duration_weeks(start, end)
+
+    return sorted(rows, key=lambda r: r["order"])  # stable: equal orders keep their position
+
+
+def schedule_status(base_start: date, agreed_weeks: float,
+                    end_dates: Iterable[Optional[date]]) -> Dict[str, Any]:
+    """Deadline check shown above the Gantt chart.
+
+    buffer_days: calendar days between the last phase end and the deadline
+    (negative means the plan overruns). None when no phase has an end date.
+    """
+    deadline = deadline_date(base_start, agreed_weeks)
+    ends = [d for d in end_dates if d is not None]
+    latest = max(ends) if ends else None
+    return {
+        "deadline": deadline,
+        "latest_end": latest,
+        "on_track": latest is None or latest <= deadline,
+        "buffer_days": None if latest is None else (deadline - latest).days,
+    }

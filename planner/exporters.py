@@ -2,7 +2,7 @@
 import io
 import math
 from datetime import date, timedelta
-from typing import Tuple
+from typing import List, Optional, Tuple
 
 import pandas as pd
 import plotly.express as px
@@ -49,12 +49,20 @@ def phase_color_map(chart_df: pd.DataFrame) -> dict:
 
 
 # ---------------------------------------------------------------- plotly
-def build_gantt_figure(chart_df: pd.DataFrame, min_date: date, num_weeks: int, deadline: date):
+def build_gantt_figure(chart_df: pd.DataFrame, min_date: date, num_weeks: int, deadline: date,
+                       colors: Optional[List[str]] = None, template: Optional[str] = None):
+    """Plotly Gantt. With no colors/template it looks exactly as before (Streamlit app)."""
+    extra = {}
+    if colors:
+        extra["color_discrete_sequence"] = colors
+    if template:
+        extra["template"] = template
     fig = px.timeline(
         chart_df,
         x_start="Start Date", x_end="Visual End Date",
         y="Task Name", color="Phase",
         hover_data={"Duration (Weeks)": True, "Real End Date": True, "Visual End Date": False},
+        **extra,
     )
     tickvals = [(min_date + timedelta(days=7 * i)).strftime("%Y-%m-%d") for i in range(num_weeks)]
     ticktext = [f"Week {i + 1}" for i in range(num_weeks)]
@@ -70,6 +78,18 @@ def build_gantt_figure(chart_df: pd.DataFrame, min_date: date, num_weeks: int, d
     fig.update_yaxes(autorange="reversed", categoryorder="array",
                      categoryarray=chart_df["Task Name"].tolist())
     return fig
+
+
+def gantt_figure_json(chart_df: pd.DataFrame, min_date: date, num_weeks: int, deadline: date) -> str:
+    """The Plotly Gantt as JSON, for the web app to save as a PNG with plotly.js.
+
+    Same chart code as the Streamlit app, with the Excel export's phase colours so the
+    PNG, the Excel file and the web app agree. Rendering happens in the browser, so no
+    server-side Chrome (kaleido) is needed.
+    """
+    fig = build_gantt_figure(chart_df, min_date, num_weeks, deadline,
+                             colors=PHASE_COLORS, template="plotly_white")
+    return fig.to_json()
 
 
 # ---------------------------------------------------------------- CSV

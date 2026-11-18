@@ -1,0 +1,170 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Bevy theme. Dark is the default (sampled from the Bevy brag-sheet UI);
+ * light is a derived variant with a darker teal so text and buttons pass WCAG AA on white.
+ * Phase colours match planner/exporters.py PHASE_COLORS so screen, Excel and PNG agree.
+ */
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Bricolage Grotesque Variable", "Inter Variable", ui-sans-serif, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-heading: var(--heading);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-label: var(--label);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-field: var(--field);
+  --color-ring: var(--ring);
+  --color-phase-1: var(--phase-1);
+  --color-phase-2: var(--phase-2);
+  --color-phase-3: var(--phase-3);
+  --color-phase-4: var(--phase-4);
+  --color-phase-5: var(--phase-5);
+  --color-phase-6: var(--phase-6);
+  --color-on-phase: var(--on-phase);
+  --color-chart-1: var(--phase-1);
+  --color-chart-2: var(--phase-2);
+  --color-chart-3: var(--phase-3);
+  --color-chart-4: var(--phase-4);
+  --color-chart-5: var(--phase-5);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --radius: 0.75rem;
+
+  --background: #f4f8f7;
+  --background-deep: #eaf1ef;
+  --glow: #d3ebe6;
+  --foreground: #0c201d;
+  --heading: #07120e;
+  --card: #ffffff;
+  --card-foreground: #0c201d;
+  --popover: #ffffff;
+  --popover-foreground: #0c201d;
+  --primary: #1f7a6c;
+  --primary-hover: #196659;
+  --primary-foreground: #ffffff;
+  --secondary: #eef4f2;
+  --secondary-foreground: #0c201d;
+  --muted: #eef4f2;
+  --muted-foreground: #4a615b;
+  --accent: #e2f2ee;
+  --accent-foreground: #0c201d;
+  --destructive: #b42318;
+  --success: #047857;
+  --success-bg: #e7f6ef;
+  --label: #1f7a6c;
+  --border: #d9e4e1;
+  --input: #d9e4e1;
+  --field: #ffffff;
+  --ring: #1f7a6c;
+
+  --phase-1: #3b82f6;
+  --phase-2: #10b981;
+  --phase-3: #f59e0b;
+  --phase-4: #ef4444;
+  --phase-5: #8b5cf6;
+  --phase-6: #ec4899;
+  --on-phase: #06100f;
+}
+
+.dark {
+  --background: #07120e;
+  --background-deep: #040b09;
+  --glow: #152f2a;
+  --foreground: #e8efed;
+  --heading: #ffffff;
+  --card: #111b17;
+  --card-foreground: #e8efed;
+  --popover: #111b17;
+  --popover-foreground: #e8efed;
+  --primary: #62c8b7;
+  --primary-hover: #5bbeae;
+  --primary-foreground: #0c201d;
+  --secondary: #1a211f;
+  --secondary-foreground: #e8efed;
+  --muted: #1a211f;
+  --muted-foreground: #96b1ab;
+  --accent: #132b26;
+  --accent-foreground: #e8efed;
+  --destructive: #f97066;
+  --success: #6ee7b7;
+  --success-bg: #0e2a22;
+  --label: #68d1bf;
+  --border: #1e2a26;
+  --input: #1e2a26;
+  --field: #0e1614;
+  --ring: #62c8b7;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans antialiased;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply min-h-dvh text-foreground;
+    background:
+      radial-gradient(1100px 520px at 0% 0%, var(--glow), transparent 62%),
+      radial-gradient(900px 420px at 100% 0%, var(--glow), transparent 60%),
+      linear-gradient(180deg, var(--background), var(--background-deep));
+    background-attachment: fixed;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  /* Uppercase, tracked section label, as in the Bevy UI ("ACHIEVEMENT DETAILS"). */
+  .eyebrow {
+    @apply text-[11px] font-bold tracking-[0.16em] text-label uppercase;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

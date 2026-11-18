@@ -1,81 +1,121 @@
-# 🏗️ SOW & Sprint Architect - PM Specialized Tool
+# SOW Architect
 
-The SOW & Sprint Architect is a specialized, Streamlit-based utility designed to automate the heavy lifting of technical project planning. By leveraging Google's Gemini LLM, it instantly parses raw Statements of Work (SOWs) and translates them into structured phase schedules, interactive Gantt charts, and manageable 2-week engineering sprints, complete with business-day date math and CSV export capabilities.
+Turn a Statement of Work into a delivery plan you can edit and hand off: phases on a Gantt chart, two-week sprints with tasks, the risks worth raising, and export files for Excel, PowerPoint, ClickUp and Jira.
 
-##  What It Does
-
-The SOW & Sprint Architect eliminates the manual overhead of breaking down massive project charters. By uploading an SOW, the app:
-1. **Extracts Core Context:** Automatically pulls executive summaries, key project risks, and the contractual timeline.
-2. **Builds Phase Schedules:** Maps out high-level deliverables and their estimated durations in weeks.
-3. **Generates Granular Sprints:** Breaks phases down into actionable engineering subtasks (e.g., "PDP Design", "API Integration") and intelligently distributes them across 2-week sprint cycles.
-4. **Visualizes Timelines:** Renders a dynamic, drag-and-drop Gantt chart to track phase progression against hard deadlines.
-
-##  How It Works
-
-* **AI Engine:** Utilizes Google's gemini-3.6-flash model with strict Pydantic JSON schemas to guarantee the output is formatted precisely for data tables.
-* **Smart Date Logic:** Features a custom business-day calculation engine. Tasks automatically skip weekends, and adjustments to a task's duration or start date seamlessly cascade to recalculate its end date.
-* **Interactive UI:** Built entirely in Streamlit. It features multi-level expandable sprint accordions (ClickUp-style), manual sprint creation/deletion, and automated Gantt chart sorting.
-* **Data Portability:** Full support for exporting data to CSV (for Jira/ClickUp), Excel (as a colored, snapped grid), and PPTX (as native, editable vector shapes).
+Claude reads the SOW using **your Claude subscription** through the Claude Code CLI. There are no API keys, and everything runs on your machine.
 
 ---
 
-##  Installation Guide
+## Quick start
 
-Follow these steps to set up the tool on your local machine.
+```bash
+./start.sh
+```
 
-### Prerequisites
-* Python 3.8 or higher installed on your system.
-* A valid Google Gemini API Key.
+That's it once setup is done (below). The script builds the web app if needed, starts it on **http://127.0.0.1:8000** and opens your browser. Press **Ctrl+C** to stop.
 
-### 1. Clone the Repository
-    git clone https://github.com/nrtalha/pm-planner.git
-    cd pm-planner
-
-### 2. Set Up a Virtual Environment
-It is highly recommended to use a virtual environment to manage dependencies.
-
-**For Mac/Linux:**
-    python3 -m venv .venv
-    source .venv/bin/activate
-
-**For Windows (Command Prompt / PowerShell):**
-    python -m venv .venv
-    .venv\Scripts\activate
-
-### 3. Install Dependencies
-With your virtual environment active, install the required Python packages:
-    
-    pip install -r requirements.txt
-
-### 4. Configure API Secrets
-Streamlit requires your Gemini API key to be stored in a specific hidden folder. 
-
-1. Inside the root directory of the project, create a folder named `.streamlit`.
-2. Inside that folder, create a file named `secrets.toml`.
-3. Add your API key to the file exactly like this:
-    
-    GEMINI_API_KEY = "your_actual_api_key_here"
-
+| Option | What it does |
+|---|---|
+| `./start.sh --no-open` | Start without opening a browser |
+| `./start.sh --rebuild` | Rebuild the web app even if it looks up to date |
+| `PORT=8010 ./start.sh` | Use another port |
 
 ---
 
-##  How to Use the App
+## Setup (once)
 
-1. **Start the Server:** Ensure your virtual environment is active, then run:
-    
-    streamlit run app.py
-    
-2. **Upload an SOW:** In the left sidebar, upload your Project Charter or Statement of Work as a PDF.
-3. **Set Constraints (Optional):** Define the official Project Start Date. If you need to force the AI to compress or expand the timeline, enter a specific number in the "Force Target Timeline" input.
-4. **Generate:** Click **Generate Plan**. The AI will parse the document and build your dashboard.
-5. **Refine:** 
-   * Edit the "Phase Schedule" table to change task orders or durations (the Gantt chart will update automatically).
-   * Expand the "Proposed Sprint Distribution" to manually assign statuses, change priorities, or add/delete entire sprints.
-6. **Export:** Use the buttons at the bottom of the page to download your finalized plans as CSVs.
+**Requirements:** macOS or Linux, Python 3.12, Node.js 20.19+ or 22.12+ with pnpm, and the Claude Code CLI.
 
-##  Tech Stack
-* **Frontend/Framework:** [Streamlit](https://streamlit.io/)
-* **AI/LLM:** Google GenAI SDK (gemini-3.6-flash)
-* **Data Processing:** Pandas, Pydantic
-* **Visualization:** Plotly Express
-* **Document Generation:** XlsxWriter (Excel), python-pptx (PowerPoint)
+```bash
+# 1. Python environment
+python3.12 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+
+# 2. Web app dependencies
+cd web && pnpm install --frozen-lockfile && cd ..
+
+# 3. Sign the Claude Code CLI in to your Claude subscription (opens a browser)
+claude auth login
+```
+
+`./start.sh` checks all of this and tells you exactly what's missing.
+
+> **Signing in matters.** The desktop Claude app and the `claude` command keep separate sign-ins. If **New plan** reports "Claude Code is not logged in", run `claude auth login` in a terminal.
+
+---
+
+## Using the app
+
+| Section | What you can do |
+|---|---|
+| **New plan** | Upload a SOW (PDF), set the start date and, optionally, a target number of weeks to compress or expand the plan. Claude usually takes under a minute. |
+| **Overview** | Planned finish against the deadline, schedule buffer, workload, the project summary and the risks Claude found. |
+| **Timeline** | Edit the phase table: order, names, durations, start and end dates; add and delete phases. Dates skip weekends: changing a duration or start moves the end date, and changing the end updates the duration. The Gantt chart and the deadline check update as you edit. Changing the project start date moves the deadline. |
+| **Sprints** | One card per sprint plus the backlog: progress, priorities and dates. Edit tasks (name, status, dates, priority), add and delete tasks and sprints. |
+| **Exports** | Download any of the files below, built from the plan as it is on screen. |
+
+### Exports
+
+| File | Contents |
+|---|---|
+| `plan.json` | **Your saved work:** the plan plus every edit. Reopen it with **Open plan.json**. |
+| `phase_schedule.csv` | Order, task, phase, duration and dates for each phase |
+| `sprint_distribution.csv` | Every task with status, dates and priority, ready for ClickUp or Jira import |
+| `gantt_grid.xlsx` | Colour-coded week grid, one row per phase |
+| `editable_gantt.pptx` | One 16:9 slide made of native, editable PowerPoint shapes |
+| `Project_Phase_Schedule.png` | The Gantt chart at 3× resolution |
+
+### Saving your work
+
+The app keeps the plan in your browser tab only. Download **plan.json** from **Exports** to save it; until you do, the browser warns you before you close or reload the tab. A `plan.json` from the older Streamlit version still opens; you choose its start date and it is laid out fresh.
+
+---
+
+## How it works
+
+```
+web/      React + TypeScript + Tailwind + shadcn/ui     the interface (built into web/dist)
+server/   FastAPI on 127.0.0.1                          serves the app and the API below
+planner/  Python                                        date rules, scheduling, exports, Claude runner
+```
+
+- **Generating a plan:** the API runs `claude -p` with your PDF in a temporary folder that only the Read tool can access, and asks for structured output matching `planner/models.py`. API-key environment variables are removed for that call, so it always uses your subscription.
+- **All date maths lives in `planner/`:** business days, sequencing, sprint windows and the deadline check. The web app sends every schedule edit to `POST /api/schedule` instead of re-implementing the rules.
+- **Exports** are produced by `planner/exporters.py`. The PNG is rendered in the browser by plotly.js from the same Plotly figure, so no server-side Chrome is needed.
+
+API reference: start the app and open **http://127.0.0.1:8000/docs**.
+
+---
+
+## Development
+
+```bash
+# API with auto-reload
+.venv/bin/uvicorn server.main:app --host 127.0.0.1 --port 8000 --reload
+
+# Web app with hot reload on http://127.0.0.1:5173 (proxies /api to :8000)
+cd web && pnpm dev
+```
+
+### Checks
+
+```bash
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest -q                 # Python: scheduling, exports, API
+
+cd web
+pnpm typecheck && pnpm lint && pnpm test      # TypeScript, oxlint, Vitest
+pnpm build
+```
+
+### Notes
+
+- Python and web dependencies are pinned (`requirements.txt`, `web/pnpm-lock.yaml`). pnpm runs in strict mode with a minimum release age, so a brand-new package version won't install until it has been public for a while.
+- The server only listens on 127.0.0.1 and stores nothing. Plans live in the browser tab and in the `plan.json` files you download.
+- SOWs are confidential client documents. They go only to Claude, through your own Claude Code sign-in.
+
+---
+
+## Legacy Streamlit app
+
+`app.py` is the previous Streamlit interface. It still runs (`.venv/bin/streamlit run app.py`) but is no longer developed, and it can't open `plan.json` files saved by the new app. It will be removed once the new app has fully replaced it.
